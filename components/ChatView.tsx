@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Chat, User, Message, CallSession } from '../types';
 import { db as localDB } from '../firebase';
 import { getUserBadge } from '../VerifiedUsers';
 import { getBadgeIcon, getBadgeStyle } from '../SupportDB';
-import { UserProfileModal } from './Modals'; 
+import { UserProfileModal } from './Modals';
 
 interface Props {
   chat: Chat;
@@ -17,7 +16,6 @@ interface Props {
 
 const EMOJI_LIST = ['😀','😂','😍','😭','😡','👍','👎','❤️','🔥','🎉','👻','👽','🤖','💩','💀','🤡','🫶','👀','☠️','👑','💎','💸','💣','💊','🩸','🔮','🧸','🎵','🎮','🚀'];
 
-// BotFather State Types
 type BotCreationStep = 'IDLE' | 'WAITING_FOR_NAME' | 'WAITING_FOR_USERNAME' | 'WAITING_FOR_BOT_SELECTION' | 'BOT_SETTINGS_MENU' | 'WAITING_FOR_WEB_APP_URL';
 
 const ChatView: React.FC<Props> = ({ chat, user, onBack, onUpdateUser, onMentionClick, onStartCall }) => {
@@ -27,22 +25,18 @@ const ChatView: React.FC<Props> = ({ chat, user, onBack, onUpdateUser, onMention
   const [showProfile, setShowProfile] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Voice Recording State
+
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const recordInterval = useRef<number | null>(null);
 
-  // Emoji Picker State
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // Message Actions State
   const [longPressedMessage, setLongPressedMessage] = useState<Message | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
 
-  // BOTFATHER STATE (Local to this chat view session)
   const [botStep, setBotStep] = useState<BotCreationStep>('IDLE');
   const [tempBotName, setTempBotName] = useState('');
   const [myBotsList, setMyBotsList] = useState<User[]>([]);
@@ -53,7 +47,7 @@ const ChatView: React.FC<Props> = ({ chat, user, onBack, onUpdateUser, onMention
       let peerId = '';
       if (chat.adminIds && chat.adminIds.length > 0) {
           peerId = chat.adminIds.find(id => id !== user.uid) || '';
-      } 
+      }
       if (!peerId) {
           if (chat.id.startsWith(user.uid + '_')) peerId = chat.id.substring(user.uid.length + 1);
           else if (chat.id.endsWith('_' + user.uid)) peerId = chat.id.substring(0, chat.id.length - user.uid.length - 1);
@@ -80,7 +74,11 @@ const ChatView: React.FC<Props> = ({ chat, user, onBack, onUpdateUser, onMention
   }, [chat.id]);
 
   const handleStartCall = async (type: 'audio' | 'video') => {
-      if(!peerUser) return alert('Connecting...');
+      if(!peerUser) {
+          alert('❌ Cannot start call: User information not loaded yet. Please wait...');
+          return;
+      }
+
       const callId = `call_${Date.now()}`;
       const newCall: CallSession = {
           id: callId,
@@ -92,7 +90,9 @@ const ChatView: React.FC<Props> = ({ chat, user, onBack, onUpdateUser, onMention
           status: 'ringing',
           timestamp: Date.now()
       };
+
       await localDB.calls.initiate(newCall);
+      console.log('✅ Call initiated:', newCall);
   };
 
   const handleSendText = async () => {
@@ -101,27 +101,25 @@ const ChatView: React.FC<Props> = ({ chat, user, onBack, onUpdateUser, onMention
     setInputText('');
     setReplyTo(null);
     setShowEmojiPicker(false);
-    
-    // Send User Message
-    const msgData: Message = { 
+
+    const msgData: Message = {
       id: 'msg_' + Date.now(),
-      senderId: user.uid, 
-      senderName: user.displayName || user.username, 
-      type: 'text', 
-      text: text, 
-      status: 'sent', 
+      senderId: user.uid,
+      senderName: user.displayName || user.username,
+      type: 'text',
+      text: text,
+      status: 'sent',
       replyToId: replyTo?.id,
-      timestamp: Date.now(), 
-      localTimestamp: Date.now(), 
-      seenBy: [user.uid], 
+      timestamp: Date.now(),
+      localTimestamp: Date.now(),
+      seenBy: [user.uid],
       isForwarded: false,
       isDeleted: false,
       editHistory: [],
-      reactions: [] 
+      reactions: []
     };
     await localDB.messages.send(chat.id, msgData);
 
-    // BOTFATHER LOGIC INTERCEPTOR
     const isBotFather = peerUser && (peerUser.username === 'botfather' || peerUser.uid === 'bot_father_official');
     if (isBotFather) {
         await processBotFatherCommand(text);
@@ -129,10 +127,9 @@ const ChatView: React.FC<Props> = ({ chat, user, onBack, onUpdateUser, onMention
   };
 
   const processBotFatherCommand = async (cmd: string) => {
-      const lowerCmd = cmd.toLowerCase().trim().replace('/', ''); 
+      const lowerCmd = cmd.toLowerCase().trim().replace('/', '');
       let responseText = '';
 
-      // COMMAND HANDLERS
       if (lowerCmd === 'cancel') {
           setBotStep('IDLE');
           setTempBotName('');
@@ -154,9 +151,9 @@ You can control me by sending these commands:
               responseText = "Alright, a new bot. How are we going to call it? Please choose a name for your bot.";
           } else if (lowerCmd === 'mybots') {
               const allUsers = await localDB.users.getAll();
-              const myBots = allUsers.filter(u => u.isBot && u.inviterUid === user.uid); 
+              const myBots = allUsers.filter(u => u.isBot && u.inviterUid === user.uid);
               setMyBotsList(myBots);
-              
+
               if(myBots.length === 0) {
                   responseText = "You have currently no bots.";
               } else {
@@ -166,7 +163,7 @@ You can control me by sending these commands:
           } else {
               responseText = "I don't recognize that command. Try /start";
           }
-      } 
+      }
       else if (botStep === 'WAITING_FOR_BOT_SELECTION') {
           const index = parseInt(cmd) - 1;
           if (!isNaN(index) && index >= 0 && index < myBotsList.length) {
@@ -174,7 +171,7 @@ You can control me by sending these commands:
               setSelectedBot(bot);
               setBotStep('BOT_SETTINGS_MENU');
               responseText = `You selected @${bot.username}. What do you want to do?
-              
+
 1. Edit Name
 2. Edit Web App / Mini App
 3. Back to list`;
@@ -191,7 +188,7 @@ You can control me by sending these commands:
           } else if (cmd === '3') {
              setBotStep('IDLE');
              processBotFatherCommand('/mybots');
-             return; // Avoid double sending
+             return;
           } else {
              responseText = "Invalid option.";
           }
@@ -212,19 +209,19 @@ You can control me by sending these commands:
       else if (botStep === 'WAITING_FOR_USERNAME') {
           const username = cmd.trim();
           const lowerUser = username.toLowerCase();
-          
+
           if (lowerUser.includes(' ') || !lowerUser.endsWith('bot')) {
               responseText = "Sorry, the username must end in 'bot'. E.g. TetrisBot or tetris_bot.\n\nPlease try again.";
           } else {
               const existing = await localDB.users.search(lowerUser);
               const exists = existing.find(u => u.username === lowerUser);
-              
+
               if (exists) {
                   responseText = "Sorry, this username is already taken. Please try something different.";
               } else {
                   const botId = `bot_${Date.now()}`;
                   const botToken = `712${Math.floor(Math.random()*10000)}:AAF${Math.random().toString(36).substring(7).toUpperCase()}_${Date.now().toString(36)}`;
-                  
+
                   const newBot: User = {
                       uid: botId,
                       numericId: Date.now(),
@@ -247,11 +244,11 @@ You can control me by sending these commands:
                       referralCount: 0,
                       privacy: { inactivityMonths: 12, lastSeen: 'everybody', forwarding: 'everybody' }
                   };
-                  
+
                   await localDB.users.create(newBot);
                   setBotStep('IDLE');
                   setTempBotName('');
-                  
+
                   responseText = `Done! Congratulations on your new bot. You will find it at t.me/${username}.
 
 Use this token to access the HTTP API:
@@ -290,33 +287,32 @@ Keep your token secure and store it safely, it can be used by anyone to control 
 
       const isVideo = file.type.startsWith('video/');
       const isImage = file.type.startsWith('image/');
-      
+
       const reader = new FileReader();
       reader.onload = async () => {
           const base64 = reader.result as string;
-          const msgData: Message = { 
+          const msgData: Message = {
             id: 'msg_media_' + Date.now(),
-            senderId: user.uid, 
-            senderName: user.displayName || user.username, 
+            senderId: user.uid,
+            senderName: user.displayName || user.username,
             type: 'media',
             mediaUrl: base64,
             mediaType: isVideo ? 'video' : (isImage ? 'image' : 'file'),
-            text: file.name, 
-            status: 'sent', 
-            timestamp: Date.now(), 
-            localTimestamp: Date.now(), 
-            seenBy: [user.uid], 
+            text: file.name,
+            status: 'sent',
+            timestamp: Date.now(),
+            localTimestamp: Date.now(),
+            seenBy: [user.uid],
             isForwarded: false,
             isDeleted: false,
             editHistory: [],
-            reactions: [] 
+            reactions: []
           };
           await localDB.messages.send(chat.id, msgData);
       };
       reader.readAsDataURL(file);
   };
 
-  // --- VOICE RECORDING LOGIC ---
   const handleRecordToggle = async () => {
     if (isRecording) {
       mediaRecorder?.stop();
@@ -335,20 +331,20 @@ Keep your token secure and store it safely, it can be used by anyone to control 
            reader.readAsDataURL(blob);
            reader.onloadend = async () => {
                const base64Audio = reader.result as string;
-               const msgData: Message = { 
+               const msgData: Message = {
                   id: 'msg_audio_' + Date.now(),
-                  senderId: user.uid, 
-                  senderName: user.displayName || user.username, 
-                  type: 'voice', 
+                  senderId: user.uid,
+                  senderName: user.displayName || user.username,
+                  type: 'voice',
                   audio: base64Audio,
-                  status: 'sent', 
-                  timestamp: Date.now(), 
-                  localTimestamp: Date.now(), 
-                  seenBy: [user.uid], 
+                  status: 'sent',
+                  timestamp: Date.now(),
+                  localTimestamp: Date.now(),
+                  seenBy: [user.uid],
                   isForwarded: false,
                   isDeleted: false,
                   editHistory: [],
-                  reactions: [] 
+                  reactions: []
                };
                await localDB.messages.send(chat.id, msgData);
            };
@@ -398,7 +394,7 @@ Keep your token secure and store it safely, it can be used by anyone to control 
 
   const handleMessageAction = (action: 'reply' | 'pin' | 'delete' | 'copy' | 'archive') => {
       if(!longPressedMessage) return;
-      
+
       switch(action) {
           case 'reply': setReplyTo(longPressedMessage); break;
           case 'pin': alert('Message pinned locally.'); break;
@@ -407,7 +403,7 @@ Keep your token secure and store it safely, it can be used by anyone to control 
               else alert("You can only delete your own messages.");
               break;
           case 'copy': if(longPressedMessage.text) navigator.clipboard.writeText(longPressedMessage.text); break;
-          case 'archive': /* Logic handled elsewhere for chat archival, this is message action */ break;
+          case 'archive': break;
       }
       setLongPressedMessage(null);
   };
@@ -425,10 +421,10 @@ Keep your token secure and store it safely, it can be used by anyone to control 
   let statusText = 'Offline';
   if (peerUser) {
      if (peerUser.isBot) {
-         statusText = 'Bot'; 
+         statusText = 'Bot';
      } else if (peerUser.presence) {
         const diff = Date.now() - peerUser.presence.lastSeen;
-        if (diff < 120000) { 
+        if (diff < 120000) {
             statusText = 'online';
         } else {
             const date = new Date(peerUser.presence.lastSeen);
@@ -440,14 +436,13 @@ Keep your token secure and store it safely, it can be used by anyone to control 
   return (
     <>
     <div className="fixed inset-0 bg-[#0b141d] z-[120] flex flex-col slide-in font-sans rtl bg-[var(--winter-bg)]" dir="rtl">
-      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-cover bg-center" 
+      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-cover bg-center"
            style={{ backgroundImage: user.chatBackground ? `url(${user.chatBackground})` : 'none' }} />
       <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-black/80 z-[1] pointer-events-none dark:to-black/80 to-white/10"></div>
 
-      {/* HEADER */}
       <div className="thick-snow bg-[#15202b]/90 backdrop-blur-3xl text-white p-3 flex items-center gap-4 shadow-2xl h-16 z-10 border-b border-[var(--border-color)] dark:bg-[#15202b]/90 bg-white/90 dark:text-white text-gray-800">
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center active:scale-90 flex-shrink-0"><i className="fa-solid fa-arrow-right text-blue-400"></i></button>
-        
+
         <div className="flex flex-1 items-center gap-3 cursor-pointer" onClick={() => setShowProfile(true)}>
             <div className="avatar-frame w-11 h-11 aspect-square rounded-full bg-gradient-to-br from-[#1c2833] to-[#24A1DE] border border-white/10 shadow-lg font-black overflow-hidden">
             {peerAvatar ? (
@@ -473,11 +468,10 @@ Keep your token secure and store it safely, it can be used by anyone to control 
         </div>
       </div>
 
-      {/* MESSAGES */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4 pb-32 hide-scrollbar z-10 relative">
         {messages.map(msg => (
           <div key={msg.id} className={`flex flex-col ${msg.senderId === user.uid ? 'items-start' : 'items-end'}`}>
-            <div 
+            <div
                 className={`max-w-[85%] rounded-[24px] px-4 py-3 shadow-2xl relative backdrop-blur-md border border-[var(--border-color)] transition-all active:scale-95 cursor-pointer ${
                 msg.senderId === user.uid ? 'bg-blue-600/80 text-white rounded-br-none' : 'bg-white/10 dark:bg-white/5 dark:text-blue-100 text-gray-800 rounded-bl-none'
                 }`}
@@ -506,14 +500,13 @@ Keep your token secure and store it safely, it can be used by anyone to control 
                     {msg.text ? renderMessageText(msg.text) : ''}
                   </div>
               )}
-              
+
               <div className="text-[8px] font-black mt-2 opacity-40 text-left flex justify-end gap-1 items-center">
                  {msg.senderId === user.uid && <i className="fa-solid fa-check text-[10px]"></i>}
                  {msg.localTimestamp ? new Date(msg.localTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
               </div>
             </div>
 
-            {/* Mini App Button for Bot Messages */}
             {msg.senderId !== user.uid && peerUser?.isBot && peerUser.webAppUrl && (
                 <button onClick={handleOpenMiniApp} className="mt-2 bg-white/10 backdrop-blur-md border border-white/20 text-[#24A1DE] px-4 py-2 rounded-xl text-xs font-bold w-[85%] flex items-center justify-center gap-2 hover:bg-white/20 transition-colors">
                     <i className="fa-solid fa-window-maximize"></i> Open {peerUser.displayName} Mini App
@@ -523,7 +516,6 @@ Keep your token secure and store it safely, it can be used by anyone to control 
         ))}
       </div>
 
-      {/* MESSAGE CONTEXT MENU */}
       {longPressedMessage && (
           <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center animate-fade-in" onClick={() => setLongPressedMessage(null)}>
               <div className="bg-[#1c1c1e] rounded-2xl w-64 p-2 shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
@@ -540,7 +532,6 @@ Keep your token secure and store it safely, it can be used by anyone to control 
           </div>
       )}
 
-      {/* Emoji Picker */}
       {showEmojiPicker && (
           <div className="absolute bottom-24 left-4 right-4 h-48 bg-[#15202b]/95 backdrop-blur-xl rounded-[24px] z-30 border border-white/10 p-3 shadow-2xl animate-fade-in grid grid-cols-6 gap-2 overflow-y-auto hide-scrollbar">
               {EMOJI_LIST.map(e => (
@@ -549,7 +540,6 @@ Keep your token secure and store it safely, it can be used by anyone to control 
           </div>
       )}
 
-      {/* REPLY INDICATOR */}
       {replyTo && (
           <div className="absolute bottom-[90px] left-4 right-4 bg-[#1c1c1e]/90 backdrop-blur-md p-2 rounded-xl flex justify-between items-center z-20 border-l-4 border-blue-500">
               <div className="flex flex-col ml-2 overflow-hidden">
@@ -560,22 +550,20 @@ Keep your token secure and store it safely, it can be used by anyone to control 
           </div>
       )}
 
-      {/* NEW GLASS INPUT BAR DESIGN - FIXED PADDING & OVERFLOW */}
       <div className="absolute bottom-0 w-full px-3 z-20 flex items-end gap-2 pb-6 safe-area-bottom pt-4 bg-gradient-to-t from-black/80 to-transparent">
-        
-        {/* Main Input Capsule */}
+
         <div className="flex-1 bg-[#1c1c1e]/80 dark:bg-[#1c1c1e]/80 bg-white/80 backdrop-blur-xl rounded-[26px] flex items-center p-1.5 border border-[var(--border-color)] shadow-lg min-h-[50px]">
             <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="w-10 h-10 rounded-full text-gray-400 hover:text-blue-500 transition-colors flex items-center justify-center active:scale-90 flex-shrink-0">
                 <i className="fa-regular fa-face-smile text-2xl"></i>
             </button>
 
-            <textarea 
-                className="flex-1 bg-transparent px-2 text-[15px] outline-none text-[var(--text-primary)] text-right font-medium placeholder-gray-500 max-h-24 resize-none py-3 hide-scrollbar" 
+            <textarea
+                className="flex-1 bg-transparent px-2 text-[15px] outline-none text-[var(--text-primary)] text-right font-medium placeholder-gray-500 max-h-24 resize-none py-3 hide-scrollbar"
                 placeholder={isRecording ? "Recording..." : "Message"}
-                value={inputText} 
+                value={inputText}
                 rows={1}
-                onChange={(e) => setInputText(e.target.value)} 
-                onKeyPress={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }} 
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyPress={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
                 disabled={isRecording}
                 dir="auto"
             />
@@ -593,15 +581,14 @@ Keep your token secure and store it safely, it can be used by anyone to control 
             )}
         </div>
 
-        {/* Send/Mic Button Circle - FIXED ALIGNMENT */}
         <div className="flex-shrink-0 w-[50px] h-[50px]">
             {inputText.trim() ? (
                 <button onClick={handleSendText} className="w-full h-full rounded-full bg-[#24A1DE] text-white shadow-xl flex items-center justify-center active:scale-90 transition-transform animate-pop-in">
-                    <i className="fa-solid fa-paper-plane text-xl pr-1"></i> 
+                    <i className="fa-solid fa-paper-plane text-xl pr-1"></i>
                 </button>
             ) : (
-                <button 
-                    onClick={handleRecordToggle} 
+                <button
+                    onClick={handleRecordToggle}
                     className={`w-full h-full rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-all ${isRecording ? 'bg-red-500 animate-pulse scale-110' : 'bg-[#1c1c1e]/80 dark:bg-[#1c1c1e]/80 bg-white/80 backdrop-blur-xl border border-[var(--border-color)] text-blue-500'}`}
                 >
                     {isRecording ? (
@@ -617,7 +604,7 @@ Keep your token secure and store it safely, it can be used by anyone to control 
         </div>
       </div>
     </div>
-    
+
     {peerUser && <UserProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} user={peerUser} />}
     </>
   );
@@ -654,3 +641,4 @@ const AudioMessage = ({ audioSrc, isOwn }: { audioSrc: string, isOwn: boolean })
 };
 
 export default ChatView;
+
