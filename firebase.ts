@@ -1,13 +1,8 @@
-
 import { User, Chat, Message, Story, AdConfig, CallSession, LiveStream, StreamMessage } from './types';
 import { INITIAL_CHATS, MOCK_STORIES } from './constants';
 
-/**
- * 🚀 ULTIMATE INDEXED-DB ENGINE
- */
-
 const DB_NAME = 'UltimateMessenger_V3';
-const DB_VERSION = 3; 
+const DB_VERSION = 3;
 
 const STORES = {
   USERS: 'users',
@@ -16,11 +11,10 @@ const STORES = {
   STORIES: 'stories',
   ADS: 'ads',
   CALLS: 'calls',
-  STREAM: 'stream', 
-  SESSION: 'session' 
+  STREAM: 'stream',
+  SESSION: 'session'
 };
 
-// --- Low Level IndexedDB Wrapper ---
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -62,24 +56,22 @@ const dbOp = async (storeName: string, mode: IDBTransactionMode, callback: (stor
         reject(tx.error);
     };
     if (request) {
-        request.onsuccess = () => {}; 
+        request.onsuccess = () => {};
     }
   });
 };
 
-// --- Real-time Simulation ---
 const triggerUpdate = () => {
+  console.log('🔄 Server Update Event Triggered');
   window.dispatchEvent(new Event('server-update'));
 };
 
-// --- Multi-Account Auth System ---
 export const auth = {
   currentUser: null as User | null,
-  
+
   onAuthStateChanged: (cb: (user: User | null) => void) => {
-    // Check localStorage for active session
     const activeUid = localStorage.getItem('active_account_uid');
-    
+
     const loadUser = async () => {
         if(activeUid) {
             const user = await db.users.get(activeUid);
@@ -89,7 +81,7 @@ export const auth = {
         }
         cb(auth.currentUser);
     };
-    
+
     loadUser();
 
     const checkSession = () => loadUser();
@@ -98,7 +90,6 @@ export const auth = {
   },
 
   login: (user: User) => {
-      // Add to accounts list in localStorage
       const accountsStr = localStorage.getItem('accounts_list');
       let accounts: string[] = accountsStr ? JSON.parse(accountsStr) : [];
       if(!accounts.includes(user.uid)) {
@@ -109,7 +100,7 @@ export const auth = {
           accounts.push(user.uid);
           localStorage.setItem('accounts_list', JSON.stringify(accounts));
       }
-      
+
       localStorage.setItem('active_account_uid', user.uid);
       auth.currentUser = user;
       window.dispatchEvent(new Event('auth-change'));
@@ -136,16 +127,16 @@ export const auth = {
       const uidToRemove = auth.currentUser.uid;
       const accountsStr = localStorage.getItem('accounts_list');
       let accounts: string[] = accountsStr ? JSON.parse(accountsStr) : [];
-      
+
       accounts = accounts.filter(id => id !== uidToRemove);
       localStorage.setItem('accounts_list', JSON.stringify(accounts));
-      
+
       if(accounts.length > 0) {
           localStorage.setItem('active_account_uid', accounts[0]);
       } else {
           localStorage.removeItem('active_account_uid');
       }
-      
+
       window.dispatchEvent(new Event('auth-change'));
   }
 };
@@ -154,7 +145,6 @@ export const signOut = () => {
     auth.logout();
 };
 
-// --- Database Engine ---
 export const db = {
   users: {
     async create(user: User) {
@@ -171,8 +161,8 @@ export const db = {
       const users: User[] = await dbOp(STORES.USERS, 'readonly', store => store.getAll());
       if (!queryStr) return users;
       const q = queryStr.replace(/@/g, '').toLowerCase().trim();
-      return users.filter(u => 
-        u.username.toLowerCase().includes(q) || 
+      return users.filter(u =>
+        u.username.toLowerCase().includes(q) ||
         u.displayName.toLowerCase().includes(q) ||
         u.uid.toLowerCase().includes(q)
       );
@@ -182,14 +172,13 @@ export const db = {
       if (user) {
         const updated = { ...user, ...data };
         await dbOp(STORES.USERS, 'readwrite', store => store.put(updated));
-        
+
         if (auth.currentUser?.uid === uid) {
              auth.currentUser = updated;
         }
-        triggerUpdate(); 
+        triggerUpdate();
       }
     },
-    // Heartbeat to keep user online
     async heartbeat(uid: string) {
         const user = await dbOp(STORES.USERS, 'readonly', store => store.get(uid));
         if (user) {
@@ -245,11 +234,10 @@ export const db = {
           chat.time = 'Now';
           await dbOp(STORES.CHATS, 'readwrite', store => store.put(chat));
       } else {
-          // Auto Create Private Chat if not exists
           const isPrivate = chatId.includes('_');
           const newChat: Chat = {
             id: chatId,
-            name: 'Chat', 
+            name: 'Chat',
             type: isPrivate ? 'private' : 'group',
             status: 'Active',
             avatar: '',
@@ -273,7 +261,7 @@ export const db = {
         cb(chatMsgs);
       };
       window.addEventListener('server-update', handler);
-      handler(); 
+      handler();
       return () => window.removeEventListener('server-update', handler);
     }
   },
@@ -282,7 +270,7 @@ export const db = {
     get(viewerUid: string) {
       return dbOp(STORES.STORIES, 'readonly', store => store.getAll()).then((allStories: Story[]) => {
           if (allStories.length === 0) return MOCK_STORIES;
-          return allStories; 
+          return allStories;
       });
     },
     async add(story: Story) {
@@ -293,6 +281,7 @@ export const db = {
 
   calls: {
       async initiate(call: CallSession) {
+          console.log('📞 Call Initiated in DB:', call);
           await dbOp(STORES.CALLS, 'readwrite', store => store.put(call));
           triggerUpdate();
       },
@@ -300,16 +289,18 @@ export const db = {
           const call = await dbOp(STORES.CALLS, 'readonly', store => store.get(callId));
           if(call) {
               call.status = status;
+              console.log(`📞 Call Status Updated: ${callId} -> ${status}`);
               await dbOp(STORES.CALLS, 'readwrite', store => store.put(call));
               triggerUpdate();
           }
       },
       async getActiveCalls(userId: string) {
           const allCalls: CallSession[] = await dbOp(STORES.CALLS, 'readonly', store => store.getAll());
-          return allCalls.filter(c => 
-              (c.callerId === userId || c.receiverId === userId) && 
+          const activeCalls = allCalls.filter(c =>
+              (c.callerId === userId || c.receiverId === userId) &&
               c.status !== 'ended' && c.status !== 'rejected'
           );
+          return activeCalls;
       }
   },
 
@@ -382,8 +373,7 @@ export const db = {
 (async function bootServer() {
   try {
       const users = await db.users.getAll();
-      
-      // CREATE ADMIN
+
       if (!users.find((u: User) => u.username === 'admin')) {
         const admin: User = {
           uid: 'admin_official',
@@ -407,7 +397,6 @@ export const db = {
         await db.users.create(admin);
       }
 
-      // CREATE BOTFATHER
       if (!users.find((u: User) => u.username === 'botfather')) {
           const botFather: User = {
               uid: 'bot_father_official',
@@ -415,7 +404,7 @@ export const db = {
               username: 'botfather',
               displayName: 'BotFather',
               bio: 'BotFather is the one bot to rule them all. Use it to create new bot accounts and manage your existing bots.',
-              avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Telegram_logo.svg/2048px-Telegram_logo.svg.png', // Placeholder
+              avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Telegram_logo.svg/2048px-Telegram_logo.svg.png',
               isBot: true,
               typoloBalance: 0,
               gifts: [],
@@ -437,3 +426,4 @@ export const db = {
       console.error("DB Boot Failed", e);
   }
 })();
+
