@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ultimate Messenger UI - Snowy Winter Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --winter-bg: #0b141d;
+            --winter-glass: rgba(255, 255, 255, 0.05);
+            --snow-white: #ffffff;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --panel-bg: #1c1c1e;
+            --input-bg: #252527;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        html.light-mode {
+            --winter-bg: #f0f2f5;
+            --winter-glass: rgba(255, 255, 255, 0.8);
+            --snow-white: #333333;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --panel-bg: #ffffff;
+            --input-bg: #f3f4f6;
+            --border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            background-color: var(--winter-bg);
+            color: var(--text-primary);
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            overflow: hidden;
+            overscroll-behavior: none;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .fa-solid, .fas, .fa-brands, .fa-regular, .fa {
+            font-family: "Font Awesome 6 Free" !important;
+            font-weight: 900 !important;
+            display: inline-block !important;
+            font-style: normal !important;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .thick-snow {
+            position: relative;
+        }
+        .thick-snow::before {
+            content: '';
+            position: absolute;
+            top: -12px;
+            left: -2px;
+            right: -2px;
+            height: 24px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" preserveAspectRatio="none"><path d="M0,80 C150,10 350,110 500,40 C650,-30 850,90 1000,20 L1000,0 L0,0 Z" fill="white"/></svg>');
+            background-size: 100% 100%;
+            z-index: 100;
+            pointer-events: none;
+            filter: drop-shadow(0 4px 8px rgba(255,255,255,0.4));
+        }
+
+        /* Fixed Ultra Thick Snow Divider */
+        .ultra-thick-snow-line {
+            position: absolute;
+            bottom: -5px; 
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" preserveAspectRatio="none"><path d="M0,40 C150,100 300,20 450,90 C600,150 750,40 900,100 C950,120 1000,80 1000,80 L1000,100 L0,100 Z" fill="white"/></svg>');
+            background-size: 100% 100%;
+            z-index: 110;
+            pointer-events: none;
+            filter: drop-shadow(0 -4px 12px rgba(255,255,255,0.5));
+        }
+
+        /* CIRCULAR Avatar Frame - Total Fix */
+        .avatar-frame {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+            border-radius: 9999px !important; /* Perfect Circle Always */
+            padding: 0 !important;
+            margin: 0 !important;
+            background: #1c2833;
+        }
+        .avatar-frame img {
+            width: 100% !important;
+            height: 100% !important;
+            min-width: 100%;
+            min-height: 100%;
+            object-fit: cover !important; /* Fills everything */
+            display: block !important;
+        }
+
+        .snow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.5;
+            filter: blur(0.5px);
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            to { transform: translateY(105vh) rotate(360deg); }
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .header-snow-container {
+            position: relative;
+            z-index: 60;
+        }
+        
+        .light-mode .text-blue-50 { color: #111827; }
+        .light-mode .text-blue-200 { color: #4b5563; }
+        .light-mode .bg-white\/5 { background-color: rgba(0,0,0,0.05); }
+        .light-mode .bg-white\/10 { background-color: rgba(0,0,0,0.1); }
+        .light-mode .border-white\/10 { border-color: rgba(0,0,0,0.1); }
+        .light-mode .bg-\[\#1c1c1e\] { background-color: #ffffff; }
+        .light-mode .bg-\[\#252527\] { background-color: #f3f4f6; }
+        .light-mode .bg-\[\#0b141d\] { background-color: #ffffff; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="text-gray-100">
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
